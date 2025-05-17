@@ -118,6 +118,8 @@ int main(int argc, char *argv[]) {
     int duration_seconds = 30;
     int interval_seconds = 2;
 
+    double next_print_time = interval_seconds;
+
     while (1) {
     // Send the buffer
     ssize_t bytes_sent = send(sockfd, buffer, BUFFER_SIZE, 0);
@@ -135,15 +137,11 @@ int main(int argc, char *argv[]) {
                      (current_time.tv_usec - start_time.tv_usec) / 1e6;
 
     // Print throughput every 2 seconds
-    if (((int)elapsed % interval_seconds == 0) && (elapsed >= interval_seconds)) {
+    if (elapsed >= next_print_time) {
         double interval_mbps = (interval_bytes_sent * 8.0) / 1e6 / interval_seconds;
         printf("Time %.0f sec: %.2f Mbps\n", elapsed, interval_mbps);
         interval_bytes_sent = 0;
-
-        // Sleep a bit to avoid duplicate prints in same second
-        struct timespec ts = {0, 100 * 1000 * 1000}; // 0.1 seconds
-        nanosleep(&ts, NULL);
-
+        next_print_time += interval_seconds;
     }
 
     // Exit after 30 seconds
