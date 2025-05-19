@@ -84,9 +84,14 @@ void handle_client(int client_sock) {
         interval_bytes += bytes_received;
 
         double now = get_real_time();
-        if (now >= next_interval) {
+
+        //auto itan if(now >= next_interval)
+        while (now >= next_interval) {
             double throughput = (interval_bytes * 8.0) / (INTERVAL * 1e6); // σε Mbps
-            printf("[%.1f sec] Throughput: %.2f Mbps\n", now - start_time, throughput);
+            //printf("[%.1f sec] Throughput: %.2f Mbps\n", now - start_time, throughput);
+            // ginetai next_interval - start_time gia na kanei swsta log ton xrono kai na mh
+            // stamataei na tupwnei ton xrono otan exoume delay
+            printf("[%.1f sec] Throughput: %.2f Mbps\n", next_interval - start_time, throughput);
             interval_bytes = 0;
             next_interval += INTERVAL;
         }

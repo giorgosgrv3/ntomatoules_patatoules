@@ -17,6 +17,8 @@
 
 #define SERVER_PORT "14444"
 #define BUFFER_SIZE 65536
+#define INTERVAL 2
+#define DURATION 30
 
 /*  stdio.h, stdlib.h, string.h, unistd.h: C standard I/O and memory functions.      
     sys/types.h, sys/socket.h, netinet/in.h, arpa/inet.h: For sockets and networking.
@@ -47,7 +49,6 @@ struct sockaddr_in {
 */
 
 int main(int argc, char *argv[]) {
-    printf("BOOT OK\n");
     int sockfd;
     struct addrinfo hints, *servinfo, *p; // hints -> to specify what kind of addresses we want.
     // *servinfo, *p -> to store the results and iterate through them.
@@ -63,7 +64,7 @@ int main(int argc, char *argv[]) {
     hints.ai_family = AF_INET;        // IPv4 only
     hints.ai_socktype = SOCK_STREAM;  // TCP
 
-    printf("[DEBUG] Calling getaddrinfo() for host: %s, port: %s\n", argv[1], SERVER_PORT);
+    printf("Calling getaddrinfo() for host: %s, port: %s\n", argv[1], SERVER_PORT);
 
     //int getaddrinfo(const char *node, const char *service, const struct addrinfo *hints, struct addrinfo **res);
     if ((rv = getaddrinfo(argv[1], "14444", &hints, &servinfo)) != 0) {
@@ -71,14 +72,14 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    printf("[DEBUG] Starting connection attempt...\n");
+    printf("Starting connection attempt...\n");
     for (p = servinfo; p != NULL; p = p->ai_next) {
-        printf("[DEBUG] Trying socket creation...\n");
+        printf("Trying socket creation...\n");
     if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
         perror("client: socket");
         continue;
     }
-    printf("[DEBUG] Socket created, trying connect...\n");
+    printf("Socket created, trying connect...\n");
 
 
     if (connect(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
@@ -86,7 +87,7 @@ int main(int argc, char *argv[]) {
         perror("client: connect");
         continue;
     }
-    printf("[DEBUG] Connect succeeded.\n");
+    printf("Connect succeeded.\n");
 
 
     break; // success
@@ -99,7 +100,7 @@ int main(int argc, char *argv[]) {
 
      // Convert the IP to a string and print it
     inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr), s, sizeof s);
-    printf("client: connecting to %s\n", s);
+    printf("Connecting to %s\n", s);
 
     freeaddrinfo(servinfo); // done with this structure
 
@@ -114,13 +115,32 @@ int main(int argc, char *argv[]) {
     long total_bytes_sent = 0;
     long interval_bytes_sent = 0;
 
-    int duration_seconds = 30;
-    int interval_seconds = 2;
+    int duration_seconds = DURATION;
+    int interval_seconds = INTERVAL;
 
     double next_print_time = interval_seconds;
 
     while (1) {
-    // Send the buffer
+
+    // Check current time
+    gettimeofday(&current_time, NULL);
+    double elapsed = (current_time.tv_sec - start_time.tv_sec) +
+                     (current_time.tv_usec - start_time.tv_usec) / 1e6;
+
+    // Print throughput every INTERVAL (2) seconds, catch up and print missed intervals if RSSI is bad
+    while (elapsed >= next_print_time) {
+        double mbps = (interval_bytes_sent * 8.0) / 1e6 / interval_seconds;
+        printf("[%.0fs] : %.2f Mbps\n", next_print_time, mbps);
+        next_print_time += interval_seconds;
+        interval_bytes_sent = 0;
+    }
+
+    // Exit after DURATION (30) seconds
+    if (elapsed >= duration_seconds) {
+        break;
+    }
+
+        // Send the buffer
     ssize_t bytes_sent = send(sockfd, buffer, BUFFER_SIZE, 0);
     if (bytes_sent < 0) {
         perror("client: send");
@@ -129,24 +149,6 @@ int main(int argc, char *argv[]) {
 
     total_bytes_sent += bytes_sent;
     interval_bytes_sent += bytes_sent;
-
-    // Check current time
-    gettimeofday(&current_time, NULL);
-    double elapsed = (current_time.tv_sec - start_time.tv_sec) +
-                     (current_time.tv_usec - start_time.tv_usec) / 1e6;
-
-    // Print throughput every 2 seconds
-    if (elapsed >= next_print_time) {
-        double interval_mbps = (interval_bytes_sent * 8.0) / 1e6 / interval_seconds;
-        printf("Time %.0f sec: %.2f Mbps\n", elapsed, interval_mbps);
-        interval_bytes_sent = 0;
-        next_print_time += interval_seconds;
-    }
-
-    // Exit after 30 seconds
-    if (elapsed >= duration_seconds) {
-        break;
-    }
 }
 
     // After the loop, printing final stats
