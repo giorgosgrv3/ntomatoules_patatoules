@@ -9,7 +9,7 @@
 
 #define PORT 14444
 #define TCP_BACKLOG 1
-#define BUFSIZE 1024
+#define BUFSIZE 65536
 #define INTERVAL 2
 #define DURATION 30
 
@@ -19,7 +19,7 @@ int server_setup (){
     struct sockaddr_in address;
 
     //creeat socket
-    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) { // 0 -> ( find the proper protocol )
+    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) { // socket(....,...,0) -> ( find the proper protocol )
         perror("socket");
         exit(1);
     }
@@ -84,9 +84,14 @@ void handle_client(int client_sock) {
         interval_bytes += bytes_received;
 
         double now = get_real_time();
-        if (now >= next_interval) {
+
+        //auto itan if(now >= next_interval)
+        while (now >= next_interval) {
             double throughput = (interval_bytes * 8.0) / (INTERVAL * 1e6); // σε Mbps
-            printf("[%.1f sec] Throughput: %.2f Mbps\n", now - start_time, throughput);
+            //printf("[%.1f sec] Throughput: %.2f Mbps\n", now - start_time, throughput);
+            // ginetai next_interval - start_time gia na kanei swsta log ton xrono kai na mh
+            // stamataei na tupwnei ton xrono otan exoume delay
+            printf("[%.1f sec] Throughput: %.2f Mbps\n", next_interval - start_time, throughput);
             interval_bytes = 0;
             next_interval += INTERVAL;
         }
@@ -128,4 +133,3 @@ int main(int argc, char *argv[]) {
     close(server_sock);
     return 0;
 }
-
